@@ -8,3 +8,7 @@ class PaymentNotFoundError(ApplicationError):
 
 class IdempotencyConflictError(ApplicationError):
     pass
+
+
+class DuplicateIdempotencyKeyError(ApplicationError):
+    pass
