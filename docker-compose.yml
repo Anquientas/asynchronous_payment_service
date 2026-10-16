@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: ${POSTGRES__USERNAME}
+      POSTGRES_PASSWORD: ${POSTGRES__PASSWORD}
+      POSTGRES_DB: ${POSTGRES__NAME}
+    ports:
+      - "${POSTGRES__PORT}:5432"
+    volumes:
+      - payments_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES__USERNAME}", "-d", "${POSTGRES__NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  payments_data:
+  rabbitmq_data:
