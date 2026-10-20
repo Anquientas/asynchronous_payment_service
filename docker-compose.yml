@@ -1,3 +1,11 @@
+x-app: &app
+  build: .
+  image: payment-service
+  env_file: .env
+  environment:
+    POSTGRES__HOST: postgres
+    RABBITMQ__URL: amqp://guest:guest@rabbitmq:5672/
+
 services:
   postgres:
     image: postgres:17
@@ -27,6 +35,41 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+  
+  migrations:
+    <<: *app
+    command: ["alembic", "upgrade", "head"]
+    depends_on:  
+      postgres:
+        condition: service_healthy
+  
+  api:
+    <<: *app
+    ports: ["8000:8000"]
+    restart: unless-stopped
+    depends_on:  
+      migrations:
+        condition: service_completed_successfully
+
+  relay:
+    <<: *app
+    command: ["python", "-m", "payment_service.bootstrap.relay"]
+    restart: unless-stopped
+    depends_on:  
+      migrations:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+
+  consumer:
+    <<: *app
+    command: ["python", "-m", "payment_service.bootstrap.consumer"]
+    restart: unless-stopped
+    depends_on:  
+      migrations:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
 
 volumes:
   payments_data:
