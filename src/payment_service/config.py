@@ -22,7 +22,6 @@ class DatabaseSettings(BaseModel):
 
 class RabbitMQSettings(BaseModel):
     url: str
-    exchange: str
 
 
 class OutboxRabbitMQSettings(BaseModel):
