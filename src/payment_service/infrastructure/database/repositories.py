@@ -1,16 +1,22 @@
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from payment_service.application.constants import EventType
+from payment_service.application.dto import OutboxMessage
 from payment_service.domain.constants import Currency, PaymentStatus
 from payment_service.domain.entities import Payment
 from payment_service.infrastructure.database.models import (
     OutboxRabbitMQModel,
     PaymentModel,
 )
+
+
+def _get_current_time() -> datetime:
+    return datetime.now(UTC)
 
 
 def _to_model(payment: Payment) -> PaymentModel:
@@ -40,6 +46,15 @@ def _to_entity(model: PaymentModel) -> Payment:
         idempotency_key=model.idempotency_key,
         created_at=model.created_at,
         processed_at=model.processed_at,
+    )
+
+
+def _to_outbox_message(model: OutboxRabbitMQModel) -> OutboxMessage:
+    return OutboxMessage(
+        message_id=model.id,
+        event_type=model.event_type,
+        payload=model.payload,
+        attempts=model.attempts,
     )
 
 
@@ -86,3 +101,35 @@ class SqlalchemyOutboxRepository:
             payload=payload,
         )
         self._session.add(outbox_rabbitmq)
+
+    async def get_unpublished(
+        self,
+        limit: int,
+        max_attempts: int,
+    ) -> list[OutboxMessage]:
+        results = await self._session.scalars(
+            select(OutboxRabbitMQModel)
+            .where(
+                OutboxRabbitMQModel.published_at.is_(None),
+                OutboxRabbitMQModel.attempts < max_attempts,
+            )
+            .order_by(OutboxRabbitMQModel.created_at)
+            .with_for_update(skip_locked=True)
+            .limit(limit=limit)
+        )
+        models = results.all()
+        return [_to_outbox_message(model) for model in models]
+
+    async def mark_published(self, message_id: UUID) -> None:
+        await self._session.execute(
+            update(OutboxRabbitMQModel)
+            .where(OutboxRabbitMQModel.id == message_id)
+            .values(published_at=_get_current_time())
+        )
+
+    async def increment_attempts(self, message_id: UUID) -> None:
+        await self._session.execute(
+            update(OutboxRabbitMQModel)
+            .where(OutboxRabbitMQModel.id == message_id)
+            .values(attempts=OutboxRabbitMQModel.attempts + 1)
+        )

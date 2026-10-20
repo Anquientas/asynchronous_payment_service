@@ -13,3 +13,5 @@ class ErrorMessage(StrEnum):
         'Платеж с идемпотентным ключом {idempotency_key} '
         'уже выполнен с другим значением параметра {parameter}!'
     )
+    OUTBOX_FAILED_PUBLISH = 'Failed to publish outbox message %s'
+    OUTBOX_RELAY_FAILED = 'Outbox relay iteration failed'
