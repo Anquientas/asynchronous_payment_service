@@ -74,8 +74,19 @@ class SqlalchemyPaymentRepository:
             return None
         return _to_entity(model=result)
 
+    async def get_by_id_for_update(self, payment_id: UUID) -> Payment | None:
+        result = await self._session.scalar(
+            select(PaymentModel)
+            .where(PaymentModel.id == payment_id)
+            .with_for_update()
+        )
+        if result is None:
+            return None
+        return _to_entity(model=result)
+
     async def get_by_idempotency_key(
-        self, idempotency_key: str
+        self,
+        idempotency_key: str,
     ) -> Payment | None:
         result = await self._session.scalar(
             select(PaymentModel).where(
@@ -85,6 +96,13 @@ class SqlalchemyPaymentRepository:
         if result is None:
             return None
         return _to_entity(model=result)
+
+    async def update(self, payment: Payment) -> None:
+        await self._session.execute(
+            update(PaymentModel)
+            .where(PaymentModel.id == payment.id)
+            .values(status=payment.status, processed_at=payment.processed_at)
+        )
 
 
 class SqlalchemyOutboxRepository:

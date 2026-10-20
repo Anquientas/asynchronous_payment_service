@@ -10,10 +10,17 @@ class PaymentRepository(Protocol):
 
     async def get_by_id(self, payment_id: UUID) -> Payment | None: ...
 
+    async def get_by_id_for_update(
+        self,
+        payment_id: UUID,
+    ) -> Payment | None: ...
+
     async def get_by_idempotency_key(
         self,
         idempotency_key: str,
     ) -> Payment | None: ...
+
+    async def update(self, payment: Payment) -> None: ...
 
 
 class OutboxRepository(Protocol):
@@ -54,3 +61,11 @@ class MessagePublisher(Protocol):
         payload: dict[str, Any],
         message_id: str,
     ) -> None: ...
+
+
+class PaymentGateway(Protocol):
+    async def charge(self, payment: Payment) -> bool: ...
+
+
+class WebhookSender(Protocol):
+    async def send(self, url: str, payload: dict[str, Any]) -> None: ...
